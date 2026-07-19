@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 // import StreamingAvatar, { AvatarQuality } from "@heygen/streaming-avatar";
@@ -127,7 +128,7 @@ function App() {
     setIsLoading(true)
 
     try {
-              const response = await fetch('http://localhost:3001/ask', {
+              const response = await fetch('https://thelovelycoder-lucy-app.onrender.com/ask', {
 
 
         method: 'POST',
@@ -240,7 +241,7 @@ function App() {
                       : 'Learner'}
                   </strong>
 
-                  <p>{message.text}</p>
+                  <ReactMarkdown>{message.text}</ReactMarkdown>
 
                   
                   
