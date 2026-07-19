@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import axios from 'axiapiKeyos';
+import axios from 'axios';
 
 dotenv.config({ path: '.env' });
 
@@ -16,6 +16,7 @@ app.use(express.json({ limit: '1mb' }));
 // Initializing the OpenAI SDK client using your hardcoded key directly
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
 
 // The POST route your frontend pings
 app.post('/ask', async (req, res) => {
