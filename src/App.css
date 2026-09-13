@@ -36,28 +36,39 @@ input:disabled {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  background: linear-gradient(
+    180deg,
+    #17101f 0%,
+    #241531 45%,
+    #120b18 100%
+  );
 }
 
 .lucy-card {
-  width: min(760px, 100%);
-  padding: 32px;
+  width: min(92vw, 520px);
+  padding: 24px 18px;
   text-align: center;
-  border: 1px solid rgba(190, 147, 255, 0.38);
+  border: 1px solid rgba(119, 76, 255, 0.45);
   border-radius: 28px;
-  background:
-    linear-gradient(
-      145deg,
-      rgba(31, 20, 63, 0.95),
-      rgba(8, 7, 20, 0.97)
-    );
+  background: linear-gradient(
+    145deg,
+    #eee6ff 0%,
+    #d9c8ff 55%,
+    #c5afff 100%
+  );
+  color: #2b183d;
   box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.5),
-    0 0 42px rgba(119, 76, 255, 0.16);
-  backdrop-filter: blur(18px);
+    0 22px 70px rgba(0, 0, 0, 0.28),
+    0 4px 42px rgba(119, 76, 255, 0.25);
 }
 
 .chat-card {
-  min-height: 760px;
+  min-height: calc(100vh - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
 }
 
 .eyebrow {
@@ -70,13 +81,14 @@ input:disabled {
 }
 
 .lucy-avatar-wrap {
-  width: 120px;
-  height: 120px;
+  width: 100%;
+  max-width: 320px;
+  height: 220px;
   margin: 0 auto 18px;
-  padding: 4px;
-  border-radius: 50%;
+  overflow: hidden;
+  border-radius: 24px;
   background:
-    linear-gradient(135deg, #ae7cff, #5a37ff);
+    linear-gradient(135deg, #ae7cff, #5a3777);
   box-shadow:
     0 0 30px rgba(126, 85, 255, 0.65);
 }
@@ -86,7 +98,7 @@ input:disabled {
   height: 100%;
   display: block;
   object-fit: cover;
-  border-radius: 50%;
+  object-position: center 28%;
 }
 
 h1 {
@@ -126,7 +138,7 @@ h2 {
   padding: 8px 13px;
   border: 1px solid rgba(180, 144, 255, 0.42);
   border-radius: 999px;
-  color: #ddd2ff;
+  color: #ffffff;
   background: rgba(115, 70, 231, 0.12);
   font-size: 0.82rem;
 }
@@ -154,23 +166,24 @@ h2 {
 }
 
 .chat-window {
-  height: 420px;
-  margin: 24px 0 18px;
-  padding: 20px;
+  flex: 1;
+  min-height: 0;
+  max-height: 420px;
+  margin: 20px 0 16px;
+  padding: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
-  border: 1px solid rgba(185, 151, 255, 0.22);
-  border-radius: 22px;
-  background:
-    rgba(3, 3, 12, 0.48);
+  text-align: left;
+  -webkit-overflow-scrolling: touch;
 }
+
 
 .message-row {
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   display: flex;
+  align-items: flex-start;
 }
-
 .message-row.lucy {
   justify-content: flex-start;
 }
@@ -181,36 +194,28 @@ h2 {
 
 .message-bubble {
   width: fit-content;
-  max-width: 82%;
-  padding: 14px 16px;
+  max-width: 88%;
+  padding: 18px 20px;
+  min-height: 90px;
   text-align: left;
-  line-height: 1.55;
+  font-size: 1rem;
+  line-height: 1.5;
   border-radius: 18px;
-  animation: messageFadeIn 0.28s ease;
+  overflow-wrap: anywhere;
 }
 
 .message-bubble.lucy {
-  color: #f2edff;
-  border: 1px solid rgba(187, 151, 255, 0.34);
+  color: #2b183d;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(119, 76, 255, 0.28);
   border-bottom-left-radius: 6px;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(110, 67, 226, 0.6),
-      rgba(59, 37, 128, 0.68)
-    );
 }
 
 .message-bubble.learner {
   color: #ffffff;
+  background: linear-gradient(135deg, #8f63e8, #6d3fd1);
   border: 1px solid rgba(123, 102, 255, 0.36);
   border-bottom-right-radius: 6px;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(63, 73, 211, 0.9),
-      rgba(74, 47, 190, 0.9)
-    );
 }
 
 .message-bubble strong {
@@ -226,6 +231,57 @@ h2 {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.message-bubble h1,
+.message-bubble h2,
+.message-bubble h3,
+.message-bubble h4,
+.message-bubble p,
+.message-bubble ul,
+.message-bubble ol,
+.message-bubble li {
+  text-align: left;
+}
+
+.message-bubble h1,
+.message-bubble h2,
+.message-bubble h3,
+.message-bubble h4 {
+  margin: 12px 0 6px;
+  color: inherit;
+  line-height: 1.25;
+}
+
+.message-bubble h1 {
+  font-size: 1.15rem;
+}
+
+.message-bubble h2,
+.message-bubble h3,
+.message-bubble h4 {
+  font-size: 1rem;
+}
+
+.message-bubble p {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.message-bubble ul,
+.message-bubble ol {
+  margin: 8px 0 10px;
+  padding-left: 20px;
+}
+
+.message-bubble li {
+  margin-bottom: 6px;
+}
+
+.message-bubble > :last-child {
+  margin-bottom: 0;
+}
+
 
 .message-time {
   display: block;
@@ -360,8 +416,9 @@ h2 {
   }
 
   .chat-window {
-    height: 390px;
-    padding: 14px;
+    height: 300px;
+    overflow-y: auto;
+    padding: 0;
   }
 
   .message-bubble {
@@ -403,5 +460,18 @@ h2 {
 
   .voice-controls button {
     width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .lucy-avatar-wrap {
+    width: calc(100% - 32px);
+    max-width: 280px;
+    height: 190px;
+    margin: 12px auto 16px;
+  }
+
+  .lucy-avatar {
+    object-position: center 25%;
   }
 }

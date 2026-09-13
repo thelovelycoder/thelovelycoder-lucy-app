@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import axios from 'axios';
+import { buildLucyCore } from './lucyCore.js';
 
 dotenv.config({ path: '.env' });
 
@@ -21,7 +22,12 @@ const openai = new OpenAI({
 // The POST route your frontend pings
 app.post('/ask', async (req, res) => {
   try {
-    const { question, messages = [] } = req.body;
+    const {
+  question,
+  messages = [],
+  learnerName = "",
+  curriculumContext = ""
+} = req.body;
     
     const cleanedQuestion = question ? question.trim() : "";
     console.log('Question received:', cleanedQuestion);
@@ -53,6 +59,7 @@ app.post('/ask', async (req, res) => {
         {
           role: 'system',
           content: `You are Professor LUCY™, the official AI Professor of The Lovely Coder. 
+          The learner's name is ${learnerName || "Learner"}. Use their name naturally when appropriate.
           
           You specialize in:
           - Medical coding
@@ -64,6 +71,14 @@ app.post('/ask', async (req, res) => {
           - Health informatics
           - Artificial intelligence in healthcare
 
+          CURRICULUM REFERENCE:
+${curriculumContext || "No matching curriculum reference was provided."}
+
+When curriculum reference material is provided:
+- Use it as the primary source for the answer.
+- Clearly explain the correct answer and rationale.
+- Do not invent codes, rules, or answer choices.
+- Mention when an exact code should be verified against the applicable code-year books.
           You are warm, professional, patient, encouraging, analytical, and structured. 
           Use this structure unless the learner requests something different.
 

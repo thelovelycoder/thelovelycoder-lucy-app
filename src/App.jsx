@@ -1,8 +1,63 @@
 import ReactMarkdown from "react-markdown";
 import { useEffect, useRef, useState } from 'react';
-import './App.css';
+import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
+import "./App.css";
+import rhiaBank from "./data/Professor-LUCY-RHIA-Question-Bank.json";
+import cpcBank from "./data/Professor-LUCY-CPC-Study-Bank.json";
+import ccsBank from "./data/Professor-LUCY-CCS-App-Bank.json";
+const MONTHLY_PRODUCT_ID = 'com.thelovelycoder.professorlucy.monthly'
 // import StreamingAvatar, { AvatarQuality } from "@heygen/streaming-avatar";
+function findCurriculumReferences(searchQuestion) {
+  const searchWords = searchQuestion
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 2);
 
+  const curriculum = [
+    ...(rhiaBank.questions || []).map((item) => ({
+      type: "RHIA",
+      title: item.domainName || `Domain ${item.domain}`,
+      question: item.question,
+      answer: item.answer,
+      rationale: item.rationale || "",
+    })),
+
+    ...(cpcBank.questions || []).map((item) => ({
+      type: "CPC",
+      title: item.category || "CPC",
+      question: item.question,
+      options: item.options || {},
+      answer: item.answer,
+      rationale: item.rationale || "",
+    })),
+
+    ...(ccsBank.cases || []).map((item) => ({
+      type: "CCS",
+      title: item.topic || "CCS Case Study",
+      question: `${item.case || ""} ${item.question || ""}`,
+      answer: item.answer,
+      rationale: item.rationale || "",
+    })),
+  ];
+
+  return curriculum
+    .map((item) => {
+      const searchableText = JSON.stringify(item).toLowerCase();
+
+      const score = searchWords.reduce(
+        (total, word) =>
+          total + (searchableText.includes(word) ? 1 : 0),
+        0
+      );
+
+      return { ...item, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(({ score, ...item }) => item);
+}
 function getCurrentTime() {
   return new Date().toLocaleTimeString([], {
     hour: 'numeric',
@@ -11,17 +66,23 @@ function getCurrentTime() {
 }
 
 function App() {
+const [learnerName, setLearnerName] = useState(
+  () => localStorage.getItem("lucyLearnerName") || ""
+);
+
   const [isLaunched, setIsLaunched] = useState(false)
   const [question, setQuestion] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
     const [isListening, setIsListening] = useState(false);
-
+const [subscriptionPrice, setSubscriptionPrice] = useState('$24.99/month')
+const [purchaseMessage, setPurchaseMessage] = useState('')
+const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 1,
       role: 'lucy',
-      text: 'Hello, learner! What would you like to learn today?',
+    text: "Hi! I'm Professor LUCY. What is your name?",
       time: getCurrentTime(),
     },
   ])
@@ -34,6 +95,123 @@ function App() {
       behavior: 'smooth',
     })
   }, [messages, isLoading])
+useEffect(() => {
+  
+  const initializePurchases = async () => {
+    if (!window.CdvPurchase) {
+      setPurchaseMessage('Purchases are available inside the mobile app.')
+      return
+    }
+
+    const { store, ProductType, Platform } = window.CdvPurchase
+
+    store.register([
+      {
+        id: MONTHLY_PRODUCT_ID,
+        type: ProductType.PAID_SUBSCRIPTION,
+        platform: Platform.APPLE_APPSTORE,
+      },
+    ])
+
+    store.when().productUpdated((product) => {
+      if (product.id === MONTHLY_PRODUCT_ID) {
+        const offer = product.getOffer()
+        const price = offer?.pricingPhases?.[0]?.price
+
+        if (price) {
+          setSubscriptionPrice(`${price}/month`)
+        }
+      }
+    })
+   store.when().receiptUpdated(() => {
+  const product = store.get(
+    MONTHLY_PRODUCT_ID,
+    Platform.APPLE_APPSTORE
+  );
+
+  if (store.owned(product)) {
+    setSubscriptionActive(true);
+    setPurchaseMessage("Subscription active!");
+  }
+}); 
+store.when().approved((transaction) => {
+  transaction.verify();
+});
+
+store.when().verified((receipt) => {
+  setSubscriptionActive(true);
+  setPurchaseMessage("Subscription active!");
+  receipt.finish();
+
+});
+    store.error((error) => {
+      setPurchaseMessage(error.message || 'Unable to load subscription.')
+    })
+
+    await store.initialize([Platform.APPLE_APPSTORE])
+  }
+
+  if (window.CdvPurchase) {
+    initializePurchases()
+  } else {
+    document.addEventListener('deviceready', initializePurchases, {
+      once: true,
+    })
+  }
+
+  return () => {
+    document.removeEventListener('deviceready', initializePurchases)
+  }
+}, [])
+
+async function subscribeMonthly() {
+  if (!window.CdvPurchase) {
+    setPurchaseMessage("Subscriptions are only available in the mobile app.");
+    return;
+  }
+  const { store, Platform } = window.CdvPurchase
+  const product = store.get(
+    MONTHLY_PRODUCT_ID,
+    Platform.APPLE_APPSTORE
+  )
+  const offer = product?.getOffer()
+
+  if (!offer) {
+    setPurchaseMessage('The monthly subscription is not available yet.')
+    return
+  }
+
+  setPurchaseMessage('Opening Apple purchase…')
+
+  const error = await offer.order()
+
+  if (error) {
+    setPurchaseMessage(error.message || 'The purchase could not be completed.')
+  }
+}
+
+
+async function restoreSubscription() {
+  if (!window.CdvPurchase) {
+    setPurchaseMessage(
+      "Restore purchases is only available in the mobile app."
+    );
+    return;
+  }
+
+  try {
+    setPurchaseMessage("Restoring subscription...");
+
+    const { store } = window.CdvPurchase;
+    await store.restorePurchases();
+
+    setPurchaseMessage("Purchase history restored.");
+  } catch (error) {
+    setPurchaseMessage(
+      error.message || "Unable to restore purchases."
+    );
+  }
+}
 
 
   function speakText(text) {
@@ -41,72 +219,106 @@ function App() {
       return
     }
 
-    window.speechSynthesis.cancel()
+    window.speechSynthesis?.cancel();
 
     
   }
 
   function stopSpeaking() {
-    window.speechSynthesis.cancel()
-  }function playLucyVoice(audioSource) {
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+function playLucyVoice(audioSource) {
   if (!audioSource) {
-    return
+    return;
   }
 
-  window.speechSynthesis?.cancel()
+  window.speechSynthesis?.cancel();
 
-  const audio = new Audio(audioSource)
+  const audio = new Audio(audioSource);
 
   audio.play().catch((error) => {
-    console.error('LUCY voice playback error:', error)
-  })
+    console.error("LUCY voice playback error:", error);
+  });
 }
-  const startSpeechRecognition = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Your browser does not support voice recognition. Please try Google Chrome.");
-      return;
-    }
+ 
+const startSpeechRecognition = async () => {
+  try {
+    setIsListening(true);
+    setQuestion("");
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.lang = 'en-US';
+    await SpeechRecognition.removeAllListeners();
 
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
+    const permissions = await SpeechRecognition.requestPermissions();
 
-       recognition.onresult = (event) => {
-      // Corrected double-array indexing to extract the raw text string properly
-      const speechToText = event.results[0][0].transcript;
-      setQuestion(speechToText);
-      
-      // Automatically triggers your handleSend function after a short 300ms pause
-      setTimeout(() => {
-        handleSend();
-      }, 300);
-    };
+if (permissions.speechRecognition !== "granted") {
+  console.error("Speech recognition permission not granted:", permissions);
+  setIsListening(false);
+  return;
+}
 
+    await SpeechRecognition.addListener("partialResults", (data) => {
+      if (data.matches && data.matches.length > 0) {
+        setQuestion(data.matches[0]);
+      }
+    });
 
-    recognition.onerror = (err) => {
-      console.error("Speech recognition error:", err);
-      setIsListening(false);
-    };
+    await SpeechRecognition.start({
+      language: "en-US",
+      partialResults: true,
+      popup: false,
+    });
+  } catch (error) {
+    console.error("Speech recognition failed to start:", error);
+    setIsListening(false);
+  }
+};
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  };
+const stopListening = async () => {
+  try {
+    await SpeechRecognition.stop();
+  } catch (error) {
+    console.log("Speech stop error:", error);
+  } finally {
+    setIsListening(false);
+  }
+};
 
   async function handleSend() {
+    console.log("handlesend fire");
     const questionString = typeof question === 'string' ? question : '';
   const cleanedQuestion = questionString.trim();
 
   if (!cleanedQuestion || isLoading) {
     return;
   }
+
+  if (!learnerName) {
+  const savedName = cleanedQuestion;
+
+  localStorage.setItem("lucyLearnerName", savedName);
+  setLearnerName(savedName);
+
+  setMessages((currentMessages) => [
+    ...currentMessages,
+    {
+      id: Date.now(),
+      role: "learner",
+      text: savedName,
+      time: getCurrentTime(),
+    },
+    {
+      id: Date.now() + 1,
+      role: "lucy",
+      text: `Hello, ${savedName}! What would you like to learn today?`,
+      time: getCurrentTime(),
+    },
+  ]);
+
+  setQuestion("");
+  return;
+}
 
     stopSpeaking()
 
@@ -127,6 +339,14 @@ function App() {
     setQuestion('')
     setIsLoading(true)
 
+    const curriculumMatches =
+  findCurriculumReferences(cleanedQuestion);
+
+const curriculumContext =
+  curriculumMatches.length > 0
+    ? JSON.stringify(curriculumMatches, null, 2)
+    : "";
+
     try {
               const response = await fetch('https://thelovelycoder-lucy-app.onrender.com/ask', {
 
@@ -138,7 +358,10 @@ function App() {
         body: JSON.stringify({
           question: cleanedQuestion,
           messages: conversationBeforeQuestion,
+          learnerName: learnerName,
+          curriculumContext: curriculumContext,
         }),
+
       })
 
       const data = await response.json()
@@ -182,8 +405,8 @@ function App() {
     } finally {
       setIsLoading(false)
     }
+  
   }
-
   function returnHome() {
     stopSpeaking()
 
@@ -195,7 +418,7 @@ function App() {
       {
         id: Date.now(),
         role: 'lucy',
-        text: 'Hello, learner! What would you like to learn today?',
+       text: "Hi! I'm Professor LUCY. 😊 What's your name?",
         time: getCurrentTime(),
       },
     ])
@@ -209,21 +432,33 @@ function App() {
             The Lovely Coder Academy®
           </p>
 
-          <div className="lucy-avatar-wrap">
-            <img
-              src="/lucy-avatar.png"
-              alt="Professor LUCY"
-              className="lucy-avatar"
-            />
-          </div>
-
+          <div
+  className="lucy-avatar-wrap"
+  style={{
+    width: "280px",
+    maxWidth: "calc(100vw - 32px)",
+    height: "190px",
+    margin: "12px auto 16px",
+    overflow: "hidden",
+    borderRadius: "24px",
+  }}
+>
+  <img
+    src="/lucy-avatar.png"
+    alt="Professor LUCY"
+    className="lucy-avatar"
+    style={{
+      width: "100%",
+      height: "100%",
+      display: "block",
+      objectFit: "cover",
+      objectPosition: "center 25%",
+    }}
+  />
+</div>
           <h1>Professor LUCY™</h1>
 
-          <p className="intro">
-            Your AI professor for medical coding, health
-            informatics, revenue cycle, healthcare analytics,
-            and artificial intelligence.
-          </p>
+        
 
           
           <div className="chat-window">
@@ -238,7 +473,7 @@ function App() {
                   <strong>
                     {message.role === 'lucy'
                       ? 'Professor LUCY™'
-                      : 'Learner'}
+                      : learnerName || "Learner"}
                   </strong>
 
                   <ReactMarkdown>{message.text}</ReactMarkdown>
@@ -290,25 +525,7 @@ function App() {
                 }
               }}
             />
-          <button 
-            type="button" 
-            onClick={startSpeechRecognition} 
-            className={`mic-button ${isListening ? 'listening' : ''}`}
-            disabled={isLoading}
-            style={{
-              backgroundColor: isListening ? '#ff4d4d' : '#8a2be2',
-              color: 'white',
-              border: 'none',
-              padding: '10px 15px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1.2rem',
-              marginRight: '8px',
-              transition: 'background-color 0.3s ease'
-            }}
-          >
-            {isListening ? '🛑 Listening...' : '🎙️'}
-          </button>
+         
 
             <button
               type="button"
@@ -339,22 +556,35 @@ function App() {
           The Lovely Coder Academy®
         </p>
 
-        <div className="lucy-avatar-wrap">
-          <img
-            src="/lucy-avatar.png"
-            alt="Professor LUCY"
-            className="lucy-avatar"
-          />
-        </div>
+       <div
+  className="lucy-avatar-wrap"
+  style={{
+    width: "280px",
+    maxWidth: "calc(100vw - 32px)",
+    height: "190px",
+    margin: "12px auto 16px",
+    overflow: "hidden",
+    borderRadius: "24px",
+  }}
+>
+  <img
+    src="/lucy-avatar.png"
+    alt="Professor LUCY"
+    className="lucy-avatar"
+    style={{
+      width: "100%",
+      height: "100%",
+      display: "block",
+      objectFit: "cover",
+      objectPosition: "center 25%",
+    }}
+  />
+</div>
 
         <h1>Professor LUCY™</h1>
         <h2>The Lovely Coder AI Professor</h2>
 
-        <p className="intro">
-          Your virtual professor for medical coding, health
-          informatics, revenue cycle, healthcare analytics,
-          and artificial intelligence.
-        </p>
+       
 
         <div className="subjects">
           <span>Medical Coding</span>
@@ -365,12 +595,72 @@ function App() {
           <span>Artificial Intelligence</span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsLaunched(true)}
-        >
-          Launch Professor LUCY
-        </button>
+    <button
+  type="button"
+  onClick={() => setIsLaunched(true)}
+>
+  Launch Professor LUCY
+</button>
+
+<p>
+  Professor LUCY Monthly Access — {subscriptionPrice} 
+</p>
+
+<div className="subscription-details">
+  <p>
+    <strong>
+      $24.99 per month includes unlimited access to Professor LUCY's
+      AI-assisted tutoring.
+    </strong>
+  </p>
+
+  <p>
+    Subscribers receive personalized explanations, study support, and
+    practice guidance for medical coding, health information management,
+    health informatics, revenue cycle, healthcare analytics, and healthcare AI.
+  </p>
+
+  <p>
+    The subscription automatically renews monthly until canceled.
+  </p>
+</div>
+
+<button
+  type="button"
+  onClick={subscribeMonthly}
+  disabled={subscriptionActive}
+>
+  {subscriptionActive ? "Subscription Active" : "Subscribe"}
+</button>
+
+
+
+<button
+  type="button"
+  onClick={restoreSubscription}
+>
+  Restore Purchases
+</button>
+<p>
+  <a
+    href="https://www.the-lovely-coder.com/professor-lucy-privacy-policy"
+    target="_blank"
+    rel="noreferrer"
+  >
+    Privacy Policy
+  </a>
+</p>
+{purchaseMessage && <p>{purchaseMessage}</p>}
+<p>
+  <a
+    href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+    target="_blank"
+    rel="noreferrer"
+  >
+    Terms of Use
+  </a>
+</p>
+
       </section>
     </main>
   )
