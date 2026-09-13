@@ -58,6 +58,36 @@ function findCurriculumReferences(searchQuestion) {
     .slice(0, 5)
     .map(({ score, ...item }) => item);
 }
+function getPracticeQuestions(bankType) {
+  if (bankType === "CPC") {
+    return (cpcBank.questions || []).map((item) => ({
+      ...item,
+      bankType: "CPC",
+      topic: item.category || "CPC General Coding",
+      answerMode: "multiple-choice",
+    }));
+  }
+
+  if (bankType === "RHIA") {
+    return (rhiaBank.questions || []).map((item) => ({
+      ...item,
+      bankType: "RHIA",
+      topic: item.domainName || `Domain ${item.domain}`,
+      answerMode: "self-review",
+    }));
+  }
+
+  if (bankType === "CCS") {
+    return (ccsBank.cases || []).map((item) => ({
+      ...item,
+      bankType: "CCS",
+      topic: item.topic || "CCS Case Study",
+      answerMode: "self-review",
+    }));
+  }
+
+  return [];
+}
 function getCurrentTime() {
   return new Date().toLocaleTimeString([], {
     hour: 'numeric',
@@ -70,8 +100,29 @@ const [learnerName, setLearnerName] = useState(
   () => localStorage.getItem("lucyLearnerName") || ""
 );
 
-  const [isLaunched, setIsLaunched] = useState(false)
-  const [question, setQuestion] = useState('')
+
+ const [isLaunched, setIsLaunched] = useState(false)
+
+const [isPracticeMode, setIsPracticeMode] = useState(false);
+const [practiceBank, setPracticeBank] = useState("");
+const [practiceQuestions, setPracticeQuestions] = useState([]);
+const [practiceIndex, setPracticeIndex] = useState(0);
+const [selectedAnswer, setSelectedAnswer] = useState("");
+const [answerRevealed, setAnswerRevealed] = useState(false);
+const [practiceFeedback, setPracticeFeedback] = useState("");
+
+const [practiceHistory, setPracticeHistory] = useState(() => {
+  try {
+    return JSON.parse(
+      localStorage.getItem("lucyPracticeHistory") || "[]"
+    );
+  } catch {
+    return [];
+  }
+});
+
+
+const [question, setQuestion] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(true)
     const [isListening, setIsListening] = useState(false);
@@ -95,6 +146,12 @@ const [subscriptionActive, setSubscriptionActive] = useState(false);
       behavior: 'smooth',
     })
   }, [messages, isLoading])
+  useEffect(() => {
+  localStorage.setItem(
+    "lucyPracticeHistory",
+    JSON.stringify(practiceHistory)
+  );
+}, [practiceHistory]);
 useEffect(() => {
   
   const initializePurchases = async () => {
@@ -284,7 +341,81 @@ const stopListening = async () => {
     setIsListening(false);
   }
 };
+function startPractice(bankType) {
+  const availableQuestions = getPracticeQuestions(bankType);
 
+  const randomizedQuestions = [...availableQuestions].sort(
+    () => Math.random() - 0.5
+  );
+
+  setPracticeBank(bankType);
+  setPracticeQuestions(randomizedQuestions);
+  setPracticeIndex(0);
+  setSelectedAnswer("");
+  setAnswerRevealed(false);
+  setPracticeFeedback("");
+  setIsLaunched(false);
+  setIsPracticeMode(true);
+}
+function savePracticeResult(result) {
+  const currentQuestion = practiceQuestions[practiceIndex];
+
+  if (!currentQuestion) {
+    return;
+  }
+
+  const resultRecord = {
+    id: Date.now(),
+    questionId: currentQuestion.id,
+    bankType: currentQuestion.bankType,
+    topic: currentQuestion.topic,
+    question: currentQuestion.question,
+    result,
+    selectedAnswer,
+    correctAnswer: currentQuestion.answer,
+    completedAt: new Date().toISOString(),
+  };
+
+  setPracticeHistory((currentHistory) => [
+    ...currentHistory,
+    resultRecord,
+  ]);
+
+  setPracticeFeedback(
+    result === "correct"
+      ? "Great work! You mastered this question."
+      : "This topic has been saved for additional review."
+  );
+
+  setAnswerRevealed(true);
+}
+
+function checkCpcAnswer() {
+  const currentQuestion = practiceQuestions[practiceIndex];
+
+  if (!selectedAnswer) {
+    setPracticeFeedback("Choose an answer before submitting.");
+    return;
+  }
+
+  const isCorrect =
+    selectedAnswer.toUpperCase() ===
+    String(currentQuestion.answer).trim().toUpperCase();
+
+  savePracticeResult(isCorrect ? "correct" : "review");
+}
+
+function goToNextPracticeQuestion() {
+  if (practiceIndex >= practiceQuestions.length - 1) {
+    setPracticeIndex(0);
+  } else {
+    setPracticeIndex((currentIndex) => currentIndex + 1);
+  }
+
+  setSelectedAnswer("");
+  setAnswerRevealed(false);
+  setPracticeFeedback("");
+}
   async function handleSend() {
     console.log("handlesend fire");
     const questionString = typeof question === 'string' ? question : '';
@@ -423,7 +554,153 @@ const curriculumContext =
       },
     ])
   }
+  const currentPracticeQuestion =
+    practiceQuestions[practiceIndex];
 
+    if (isPracticeMode && currentPracticeQuestion) {
+    return (
+      <main className="lucy-page">
+        <section className="lucy-card practice-card">
+          <p className="eyebrow">
+            Professor LUCY™ Practice Mode
+          </p>
+
+          <h1>{practiceBank} Practice</h1>
+
+          <p>
+            Question {practiceIndex + 1} of{" "}
+            {practiceQuestions.length}
+          </p>
+
+          <article className="practice-question">
+            <p className="practice-topic">
+              {currentPracticeQuestion.topic}
+            </p>
+
+            {currentPracticeQuestion.case && (
+              <p className="practice-case">
+                {currentPracticeQuestion.case}
+              </p>
+            )}
+
+            <h2>{currentPracticeQuestion.question}</h2>
+            {currentPracticeQuestion.answerMode ===
+  "multiple-choice" && (
+  <div className="practice-options">
+    {Object.entries(
+      currentPracticeQuestion.options || {}
+    )
+      .sort(([firstLetter], [secondLetter]) =>
+        firstLetter.localeCompare(secondLetter)
+      )
+      .map(([letter, optionText]) => (
+        <button
+          type="button"
+          key={letter}
+          className={
+            selectedAnswer === letter
+              ? "practice-option selected"
+              : "practice-option"
+          }
+          disabled={answerRevealed}
+          onClick={() => setSelectedAnswer(letter)}
+        >
+          <strong>{letter}.</strong> {optionText}
+        </button>
+      ))}
+  </div>
+)}
+
+{currentPracticeQuestion.answerMode ===
+  "multiple-choice" &&
+  !answerRevealed && (
+    <button
+      type="button"
+      className="practice-action"
+      onClick={checkCpcAnswer}
+    >
+      Submit Answer
+    </button>
+  )}
+
+{currentPracticeQuestion.answerMode ===
+  "self-review" &&
+  !answerRevealed && (
+    <button
+      type="button"
+      className="practice-action"
+      onClick={() => setAnswerRevealed(true)}
+    >
+      Reveal Answer
+    </button>
+  )}
+
+{answerRevealed && (
+  <div className="practice-answer">
+    <strong>Correct Answer</strong>
+    <p>{currentPracticeQuestion.answer}</p>
+
+    {currentPracticeQuestion.rationale && (
+      <>
+        <strong>Why It Matters</strong>
+        <p>{currentPracticeQuestion.rationale}</p>
+      </>
+    )}
+  </div>
+)}
+
+{currentPracticeQuestion.answerMode ===
+  "self-review" &&
+  answerRevealed &&
+  !practiceFeedback && (
+    <div className="self-review-actions">
+      <button
+        type="button"
+        onClick={() => savePracticeResult("correct")}
+      >
+        Got It
+      </button>
+
+      <button
+        type="button"
+        onClick={() => savePracticeResult("review")}
+      >
+        Review Again
+      </button>
+    </div>
+  )}
+
+{practiceFeedback && (
+  <p className="practice-feedback">
+    {practiceFeedback}
+  </p>
+)}
+
+{answerRevealed && practiceFeedback && (
+  <button
+    type="button"
+    className="practice-action"
+    onClick={goToNextPracticeQuestion}
+  >
+    Next Question
+  </button>
+)}
+          </article>
+
+          <button
+            type="button"
+            className="back-button"
+            onClick={() => setIsPracticeMode(false)}
+          >
+            Back to Home
+          </button>
+        </section>
+      </main>
+    );
+  }
+  
+
+  
   if (isLaunched) {
     return (
       <main className="lucy-page">
@@ -601,7 +878,31 @@ const curriculumContext =
 >
   Launch Professor LUCY
 </button>
+<div className="practice-launch">
+  <h2>Practice With Professor LUCY</h2>
+  <p>Choose your certification area:</p>
 
+  <button
+    type="button"
+    onClick={() => startPractice("RHIA")}
+  >
+    Start RHIA Practice
+  </button>
+
+  <button
+    type="button"
+    onClick={() => startPractice("CPC")}
+  >
+    Start CPC Practice
+  </button>
+
+  <button
+    type="button"
+    onClick={() => startPractice("CCS")}
+  >
+    Start CCS Practice
+  </button>
+</div>
 <p>
   Professor LUCY Monthly Access — {subscriptionPrice} 
 </p>
