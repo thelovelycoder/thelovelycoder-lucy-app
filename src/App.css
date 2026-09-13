@@ -221,7 +221,7 @@ h2 {
 .message-bubble strong {
   display: block;
   margin-bottom: 6px;
-  color: #ffffff;
+  color: inherit;
   font-size: 0.78rem;
   letter-spacing: 0.02em;
 }
