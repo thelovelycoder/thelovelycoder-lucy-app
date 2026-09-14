@@ -8,8 +8,7 @@ import { buildLucyCore } from './lucyCore.js';
 dotenv.config({ path: '.env' });
 
 const app = express();
-const port = 3001;
-
+const port = process.env.PORT || 3001;
 // Middlewares to handle incoming frontend traffic
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -125,9 +124,8 @@ When curriculum reference material is provided:
 });
 
 // Spin up server listener 
-app.listen(port, () => {
-  console.log(`Professor LUCY server running on port ${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Professor LUCY™ server running on port ${port}`);
 });
-// ==========================================
 
 
