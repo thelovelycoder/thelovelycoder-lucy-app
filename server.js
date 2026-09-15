@@ -4,11 +4,15 @@ import dotenv from 'dotenv';
 import OpenAI from 'openai';
 import axios from 'axios';
 import { buildLucyCore } from './lucyCore.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config({ path: '.env' });
 
 const app = express();
 const port = process.env.PORT || 3001;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // Middlewares to handle incoming frontend traffic
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -123,7 +127,19 @@ When curriculum reference material is provided:
   }
 });
 
-// Spin up server listener 
+// Serve the built Professor LUCY™ React frontend
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Send the React app for browser GET requests
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  }
+
+  next();
+});
+
+//Spin up server listener 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Professor LUCY™ server running on port ${port}`);
 });
